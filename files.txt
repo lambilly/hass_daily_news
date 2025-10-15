@@ -1,0 +1,13 @@
+hass_daily_news/
+├── custom_components/
+│   └── daily_news/
+│       ├── __init__.py
+│       ├── manifest.json
+│       ├── sensor.py
+│       ├── config_flow.py
+│       ├── const.py
+│       └── translations/
+│           └── zh-Hans.json
+├── README.md
+├── info.md
+└── hacs.json
