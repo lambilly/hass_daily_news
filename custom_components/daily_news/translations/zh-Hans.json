@@ -1,0 +1,26 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "description": "设置每日新闻集成",
+                "data": {
+                    "scroll_interval": "滚动间隔（秒）"
+                }
+            }
+        },
+        "abort": {
+            "single_instance_allowed": "仅允许一个每日新闻实例"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "scroll_interval": "滚动间隔（秒）"
+                },
+                "description": "配置滚动新闻的切换间隔时间"
+            }
+        }
+    },
+    "title": "每日新闻"
+}
