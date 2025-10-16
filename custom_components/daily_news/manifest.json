@@ -2,7 +2,7 @@
     "domain": "daily_news",
     "name": "每日新闻",
     "codeowners": ["@lambilly"],
-    "version": "1.0.1",
+    "version": "1.0.2",
     "config_flow": true,
     "documentation": "https://github.com/lambilly/hass_daily_news",
     "issue_tracker": "https://github.com/lambilly/hass_daily_news/issues",

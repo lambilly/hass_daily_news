@@ -36,6 +36,13 @@ class DailyNewsSensor(CoordinatorEntity, SensorEntity):
         self.config_entry = config_entry
         self._attr_name = "每日新闻"
         self._attr_unique_id = f"{config_entry.entry_id}_daily_news"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, config_entry.entry_id)},
+            "name": "新闻数据",
+            "manufacturer": "Node-RED",
+            "model": "每日新闻",
+            "sw_version": config_entry.version,
+        }
 
     @property
     def native_value(self):
@@ -79,6 +86,13 @@ class ScrollingNewsSensor(CoordinatorEntity, SensorEntity):
         self.config_entry = config_entry
         self._attr_name = "滚动新闻"
         self._attr_unique_id = f"{config_entry.entry_id}_scrolling_news"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, config_entry.entry_id)},
+            "name": "新闻数据",
+            "manufacturer": "Node-RED",
+            "model": "每日新闻",
+            "sw_version": config_entry.version,
+        }
 
     @property
     def native_value(self):
