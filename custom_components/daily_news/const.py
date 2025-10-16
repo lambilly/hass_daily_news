@@ -17,4 +17,5 @@ ATTR_NEWS = "news"
 ATTR_UPDATE_TIME = "update_time"
 ATTR_CURRENT_INDEX = "current_index"
 ATTR_TOTAL_NEWS = "total_news"
-ATTR_TITLE = "title"  # 新增 title 常量
+ATTR_TITLE = "title"
+ATTR_SCROLL_INTERVAL = "scroll_interval"  # 新增滚动间隔属性

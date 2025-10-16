@@ -13,6 +13,7 @@ from .const import (
     ATTR_UPDATE_TIME,
     ATTR_CURRENT_INDEX,
     ATTR_TOTAL_NEWS,
+    ATTR_SCROLL_INTERVAL,
 )
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
@@ -60,7 +61,8 @@ class DailyNewsSensor(CoordinatorEntity, SensorEntity):
             ATTR_WEIYU: data.get("weiyu", ""),
             ATTR_NEWS: data.get("news", {}),
             ATTR_UPDATE_TIME: data.get("date", ""),
-            ATTR_TOTAL_NEWS: data.get("total_news", 0)
+            ATTR_TOTAL_NEWS: data.get("total_news", 0),
+            ATTR_SCROLL_INTERVAL: data.get("scroll_interval", 15)  # 添加滚动间隔
         }
 
     @property
@@ -96,7 +98,8 @@ class ScrollingNewsSensor(CoordinatorEntity, SensorEntity):
         current_news, current_index, total_news = self.coordinator.get_current_news()
         data = self.coordinator.data
         
-        return {
+        # 构建属性字典，排除news属性
+        attributes = {
             "title": "滚动新闻",  # 新增 title 属性
             "current_news": current_news,
             ATTR_CURRENT_INDEX: current_index,
@@ -105,9 +108,12 @@ class ScrollingNewsSensor(CoordinatorEntity, SensorEntity):
             ATTR_HEAD_IMAGE: data.get("head_image", ""),
             ATTR_NEWS_IMAGE: data.get("news_image", ""),
             ATTR_WEIYU: data.get("weiyu", ""),
-            ATTR_NEWS: data.get("news", {}),
-            ATTR_UPDATE_TIME: data.get("date", "")
+            # 注意：这里故意不包含 ATTR_NEWS 属性
+            ATTR_UPDATE_TIME: data.get("date", ""),
+            ATTR_SCROLL_INTERVAL: data.get("scroll_interval", 15)  # 添加滚动间隔
         }
+        
+        return attributes
 
     @property
     def icon(self):
