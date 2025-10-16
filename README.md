@@ -74,16 +74,17 @@
 
 ## 使用示例
 
-### 在概览中显示
+### 在卡片中显示
 
 ```yaml
-type: entities
-entities:
-  - entity: sensor.daily_news
-    name: 今日新闻
-  - entity: sensor.scrolling_news
-    name: 滚动新闻
-title: 新闻资讯
+type: custom:html-template-card
+content: >
+  {% set entity = 'sensor.gun_dong_xin_wen' %}<div style="color: white;"><p
+  align="left"><h3 style="color: white; margin-bottom: 0px;">【📰{{
+  state_attr(entity, 'title') }}】</h3><p align="left"
+  style="color: white; font-size: 1.0em; margin-top: 10px;">{{
+  state_attr(entity, 'current_news') }}
+
 ```
 ## 故障排除
  - 集成无法添加
