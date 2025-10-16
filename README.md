@@ -74,7 +74,7 @@
 
 ## 使用示例
 
-### 在卡片中显示
+### 在卡片中显示，需要在HACS安装：Lovelace HTML Jinja2 Template card 卡片
 
 ```yaml
 type: custom:html-template-card
