@@ -10,6 +10,9 @@
         },
         "abort": {
             "single_instance_allowed": "仅允许一个每日新闻实例"
+        },
+        "error": {
+            "scroll_interval_range": "滚动间隔必须在5-300秒之间"
         }
     },
     "options": {
@@ -18,7 +21,8 @@
                 "data": {
                     "scroll_interval": "滚动间隔（秒）"
                 },
-                "description": "配置滚动新闻的切换间隔时间"
+                "description": "配置滚动新闻的切换间隔时间（5-300秒）",
+                "title": "配置滚动新闻"
             }
         }
     },
