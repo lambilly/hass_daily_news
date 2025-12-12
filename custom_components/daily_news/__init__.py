@@ -51,7 +51,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     
     # 立即进行第一次数据更新
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception as err:
+        _LOGGER.warning(f"Initial update failed: {err}. Will retry at scheduled time.")
+        # 即使第一次更新失败，仍然继续设置集成
+        # 设置默认数据
+        coordinator.data = coordinator._get_default_data()
     
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
@@ -92,6 +98,7 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
         self.current_news_index = 0
         self.retry_count = 0
         self.max_retries = 2
+        self.last_update_success = False
         
         super().__init__(
             hass,
@@ -100,22 +107,81 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
         )
 
+    def _get_default_data(self):
+        """Get default data when API fails."""
+        return {
+            "title": "每日新闻",
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "status": "等待更新",
+            "head_image": "暂无图片",
+            "news_image": "暂无图片",
+            "weiyu": "暂无微语",
+            "news": {},
+            "total_news": 0,
+            "scroll_interval": self.scroll_interval,
+            "last_update": "从未更新"
+        }
+
     async def _async_update_data(self):
         """Fetch data from API."""
         try:
             session = async_get_clientsession(self.hass)
-            async with async_timeout.timeout(10):
-                response = await session.get(API_URL)
+            
+            # 添加User-Agent头，模拟浏览器请求
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+            
+            async with async_timeout.timeout(15):  # 增加超时时间到15秒
+                response = await session.get(API_URL, headers=headers)
+                
                 if response.status == 200:
                     data = await response.json()
                     self.retry_count = 0  # 重置重试计数
-                    return self._process_data(data)
+                    self.last_update_success = True
+                    processed_data = self._process_data(data)
+                    processed_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    return processed_data
+                elif response.status == 403:
+                    _LOGGER.error("API returned 403 Forbidden. The server is rejecting the request.")
+                    self.last_update_success = False
+                    # 返回默认数据，但标记状态
+                    default_data = self._get_default_data()
+                    default_data["status"] = f"API拒绝访问 (403)"
+                    default_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    return default_data
                 else:
-                    raise UpdateFailed(f"API request failed with status {response.status}")
-        except Exception as err:
+                    _LOGGER.warning(f"API request failed with status {response.status}")
+                    self.last_update_success = False
+                    default_data = self._get_default_data()
+                    default_data["status"] = f"API请求失败 ({response.status})"
+                    default_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    return default_data
+                    
+        except asyncio.TimeoutError:
+            _LOGGER.warning("API request timed out after 15 seconds")
             self.retry_count += 1
-            _LOGGER.warning(f"API update failed (attempt {self.retry_count}): {err}")
-            raise UpdateFailed(f"Error communicating with API: {err}")
+            self.last_update_success = False
+            default_data = self._get_default_data()
+            default_data["status"] = f"请求超时 (重试 {self.retry_count}/{self.max_retries})"
+            default_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return default_data
+        except aiohttp.ClientConnectionError as err:
+            _LOGGER.warning(f"Connection error: {err}")
+            self.retry_count += 1
+            self.last_update_success = False
+            default_data = self._get_default_data()
+            default_data["status"] = f"连接错误: {err}"
+            default_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return default_data
+        except Exception as err:
+            _LOGGER.warning(f"API update failed (attempt {self.retry_count + 1}): {err}")
+            self.retry_count += 1
+            self.last_update_success = False
+            default_data = self._get_default_data()
+            default_data["status"] = f"更新失败: {str(err)[:50]}"
+            default_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            return default_data
 
     def _process_data(self, data):
         """Process the API response data."""
@@ -138,14 +204,14 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
         
         return {
             "title": "每日新闻",
-            "date": data.get("date", "无效日期") if is_valid_date(data.get("date", "")) else "无效日期",
-            "status": (data.get("msg", "未知状态") or "未知状态")[:50],
+            "date": data.get("date", "无效日期") if is_valid_date(data.get("date", "")) else datetime.now().strftime("%Y-%m-%d"),
+            "status": (data.get("msg", "更新成功") or "更新成功")[:50],
             "head_image": data.get("head_image", "暂无图片") or "暂无图片",
             "news_image": data.get("image", "暂无图片") or "暂无图片",
             "weiyu": (data.get("weiyu", "暂无微语") or "暂无微语")[:100],
             "news": news_object,
             "total_news": len(news_list),
-            "scroll_interval": self.scroll_interval  # 添加滚动间隔到数据中
+            "scroll_interval": self.scroll_interval
         }
 
     def start_scheduled_updates(self):
@@ -170,16 +236,16 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
             today_9am = now.replace(hour=9, minute=0, second=0, microsecond=0)
             
             # 如果现在时间已经过了7:00但还没到9:00，且今天还没有成功更新，则立即尝试更新
-            if now >= today_7am and now < today_9am and self.retry_count == 0:
+            if now >= today_7am and now < today_9am and not self.last_update_success:
                 _LOGGER.info("Executing scheduled update (7:00 AM)")
                 try:
                     await self.async_refresh()
                 except Exception as err:
                     _LOGGER.warning(f"Scheduled update failed: {err}")
             
-            # 如果现在时间已经过了9:00，且还有重试次数，则进行重试
-            elif now >= today_9am and self.retry_count > 0 and self.retry_count <= self.max_retries:
-                _LOGGER.info(f"Executing retry update (9:00 AM, attempt {self.retry_count})")
+            # 如果现在时间已经过了9:00，且上次更新失败，则进行重试
+            elif now >= today_9am and not self.last_update_success:
+                _LOGGER.info(f"Executing retry update (9:00 AM)")
                 try:
                     await self.async_refresh()
                 except Exception as err:
@@ -187,8 +253,6 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
             
             # 计算下一次更新时间（明天7:00）
             next_update = today_7am + timedelta(days=1)
-            if now >= today_7am:
-                next_update = today_7am + timedelta(days=1)
             
             wait_seconds = (next_update - now).total_seconds()
             _LOGGER.debug(f"Next update scheduled at {next_update} (in {wait_seconds:.0f} seconds)")
@@ -214,13 +278,16 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
                 news_count = self.data.get("total_news", 0)
                 if news_count > 0:
                     self.current_news_index = (self.current_news_index % news_count) + 1
-                    # Notify sensors to update
+                    # 通知传感器更新
+                    self.async_set_updated_data(self.data)
+                else:
+                    # 如果没有新闻，也更新一次以刷新状态
                     self.async_set_updated_data(self.data)
 
     def get_current_news(self):
         """Get current scrolling news item."""
         if not self.data or "news" not in self.data:
-            return None, 0, 0
+            return "等待数据", 0, 0
             
         news_data = self.data["news"]
         total_news = self.data.get("total_news", 0)

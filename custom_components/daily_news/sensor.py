@@ -56,12 +56,13 @@ class DailyNewsSensor(CoordinatorEntity, SensorEntity):
         """Return the state attributes."""
         if not self.coordinator.data:
             return {
-                "title": "每日新闻"
+                "title": "每日新闻",
+                "last_update": "从未更新"
             }
             
         data = self.coordinator.data
         return {
-            "title": "每日新闻",  # 新增 title 属性
+            "title": "每日新闻",
             ATTR_STATUS: data.get("status", ""),
             ATTR_HEAD_IMAGE: data.get("head_image", ""),
             ATTR_NEWS_IMAGE: data.get("news_image", ""),
@@ -69,7 +70,8 @@ class DailyNewsSensor(CoordinatorEntity, SensorEntity):
             ATTR_NEWS: data.get("news", {}),
             ATTR_UPDATE_TIME: data.get("date", ""),
             ATTR_TOTAL_NEWS: data.get("total_news", 0),
-            ATTR_SCROLL_INTERVAL: data.get("scroll_interval", 15)  # 添加滚动间隔
+            ATTR_SCROLL_INTERVAL: data.get("scroll_interval", 15),
+            "last_update": data.get("last_update", "从未更新")
         }
 
     @property
@@ -106,15 +108,15 @@ class ScrollingNewsSensor(CoordinatorEntity, SensorEntity):
         """Return the state attributes."""
         if not self.coordinator.data:
             return {
-                "title": "滚动新闻"
+                "title": "滚动新闻",
+                "last_update": "从未更新"
             }
             
         current_news, current_index, total_news = self.coordinator.get_current_news()
         data = self.coordinator.data
         
-        # 构建属性字典，排除news属性
         attributes = {
-            "title": "滚动新闻",  # 新增 title 属性
+            "title": "滚动新闻",
             "current_news": current_news,
             ATTR_CURRENT_INDEX: current_index,
             ATTR_TOTAL_NEWS: total_news,
@@ -122,9 +124,9 @@ class ScrollingNewsSensor(CoordinatorEntity, SensorEntity):
             ATTR_HEAD_IMAGE: data.get("head_image", ""),
             ATTR_NEWS_IMAGE: data.get("news_image", ""),
             ATTR_WEIYU: data.get("weiyu", ""),
-            # 注意：这里故意不包含 ATTR_NEWS 属性
             ATTR_UPDATE_TIME: data.get("date", ""),
-            ATTR_SCROLL_INTERVAL: data.get("scroll_interval", 15)  # 添加滚动间隔
+            ATTR_SCROLL_INTERVAL: data.get("scroll_interval", 15),
+            "last_update": data.get("last_update", "从未更新")
         }
         
         return attributes
