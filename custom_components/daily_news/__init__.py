@@ -96,9 +96,10 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
         self.scroll_task = None
         self.update_task = None
         self.current_news_index = 0
-        self.retry_count = 0
-        self.max_retries = 2
-        self.last_update_success = False
+        self.today_retry_count = 0
+        self.max_retries_per_day = 8  # 7-9点之间每15分钟一次，最多8次
+        self.today_success = False
+        self.today_date = None
         
         super().__init__(
             hass,
@@ -109,9 +110,10 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
 
     def _get_default_data(self):
         """Get default data when API fails."""
+        today_date = datetime.now().strftime("%Y-%m-%d")
         return {
             "title": "每日新闻",
-            "date": datetime.now().strftime("%Y-%m-%d"),
+            "date": today_date,
             "status": "等待更新",
             "head_image": "暂无图片",
             "news_image": "暂无图片",
@@ -119,11 +121,16 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
             "news": {},
             "total_news": 0,
             "scroll_interval": self.scroll_interval,
-            "last_update": "从未更新"
+            "last_update": "从未更新",
+            "retry_count": 0,
+            "update_schedule": "每日7-9点更新"
         }
 
     async def _async_update_data(self):
         """Fetch data from API."""
+        # 检查是否需要重置每日计数器
+        self._check_reset_daily_counters()
+        
         try:
             session = async_get_clientsession(self.hass)
             
@@ -137,51 +144,70 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
                 
                 if response.status == 200:
                     data = await response.json()
-                    self.retry_count = 0  # 重置重试计数
-                    self.last_update_success = True
                     processed_data = self._process_data(data)
                     processed_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    processed_data["retry_count"] = self.today_retry_count
+                    processed_data["update_schedule"] = f"今日第{self.today_retry_count}次更新成功"
+                    self.today_success = True
+                    _LOGGER.info(f"API更新成功 (第{self.today_retry_count}次尝试)")
                     return processed_data
                 elif response.status == 403:
-                    _LOGGER.error("API returned 403 Forbidden. The server is rejecting the request.")
-                    self.last_update_success = False
-                    # 返回默认数据，但标记状态
+                    _LOGGER.error("API返回403 Forbidden，服务器拒绝请求")
+                    self.today_retry_count += 1
                     default_data = self._get_default_data()
-                    default_data["status"] = f"API拒绝访问 (403)"
+                    default_data["status"] = f"API拒绝访问(403) - 第{self.today_retry_count}次尝试"
                     default_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    default_data["retry_count"] = self.today_retry_count
+                    default_data["update_schedule"] = f"今日第{self.today_retry_count}次更新失败"
                     return default_data
                 else:
-                    _LOGGER.warning(f"API request failed with status {response.status}")
-                    self.last_update_success = False
+                    _LOGGER.warning(f"API请求失败，状态码: {response.status}")
+                    self.today_retry_count += 1
                     default_data = self._get_default_data()
-                    default_data["status"] = f"API请求失败 ({response.status})"
+                    default_data["status"] = f"API请求失败({response.status}) - 第{self.today_retry_count}次尝试"
                     default_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    default_data["retry_count"] = self.today_retry_count
+                    default_data["update_schedule"] = f"今日第{self.today_retry_count}次更新失败"
                     return default_data
                     
         except asyncio.TimeoutError:
-            _LOGGER.warning("API request timed out after 15 seconds")
-            self.retry_count += 1
-            self.last_update_success = False
+            _LOGGER.warning("API请求超时 (15秒)")
+            self.today_retry_count += 1
             default_data = self._get_default_data()
-            default_data["status"] = f"请求超时 (重试 {self.retry_count}/{self.max_retries})"
+            default_data["status"] = f"请求超时 - 第{self.today_retry_count}次尝试"
             default_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            default_data["retry_count"] = self.today_retry_count
+            default_data["update_schedule"] = f"今日第{self.today_retry_count}次更新失败"
             return default_data
         except aiohttp.ClientConnectionError as err:
-            _LOGGER.warning(f"Connection error: {err}")
-            self.retry_count += 1
-            self.last_update_success = False
+            _LOGGER.warning(f"连接错误: {err}")
+            self.today_retry_count += 1
             default_data = self._get_default_data()
             default_data["status"] = f"连接错误: {err}"
             default_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            default_data["retry_count"] = self.today_retry_count
+            default_data["update_schedule"] = f"今日第{self.today_retry_count}次更新失败"
             return default_data
         except Exception as err:
-            _LOGGER.warning(f"API update failed (attempt {self.retry_count + 1}): {err}")
-            self.retry_count += 1
-            self.last_update_success = False
+            _LOGGER.warning(f"API更新失败 (第{self.today_retry_count+1}次尝试): {err}")
+            self.today_retry_count += 1
             default_data = self._get_default_data()
             default_data["status"] = f"更新失败: {str(err)[:50]}"
             default_data["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            default_data["retry_count"] = self.today_retry_count
+            default_data["update_schedule"] = f"今日第{self.today_retry_count}次更新失败"
             return default_data
+
+    def _check_reset_daily_counters(self):
+        """检查并重置每日计数器."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        if self.today_date != today:
+            # 新的一天，重置计数器
+            self.today_date = today
+            self.today_retry_count = 0
+            self.today_success = False
+            _LOGGER.info(f"新的一天开始: {today}，重置更新计数器")
 
     def _process_data(self, data):
         """Process the API response data."""
@@ -202,9 +228,11 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
         for index, item in enumerate(news_list):
             news_object[f"news_{index+1}"] = format_news_content(str(item))
         
+        today_date = datetime.now().strftime("%Y-%m-%d")
+        
         return {
             "title": "每日新闻",
-            "date": data.get("date", "无效日期") if is_valid_date(data.get("date", "")) else datetime.now().strftime("%Y-%m-%d"),
+            "date": data.get("date", today_date) if is_valid_date(data.get("date", "")) else today_date,
             "status": (data.get("msg", "更新成功") or "更新成功")[:50],
             "head_image": data.get("head_image", "暂无图片") or "暂无图片",
             "news_image": data.get("image", "暂无图片") or "暂无图片",
@@ -215,7 +243,7 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
         }
 
     def start_scheduled_updates(self):
-        """Start scheduled updates at 7:00 AM with retry at 9:00 AM if failed."""
+        """Start scheduled updates between 7:00 AM and 9:00 AM."""
         self.stop_scheduled_updates()
         self.update_task = self.hass.loop.create_task(self._scheduled_updates())
 
@@ -226,38 +254,75 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
             self.update_task = None
 
     async def _scheduled_updates(self):
-        """Handle scheduled updates with retry logic."""
+        """Handle scheduled updates with retry logic between 7:00 AM and 9:00 AM."""
         while True:
             now = dt_util.now()
+            current_hour = now.hour
             
-            # 计算今天7:00的时间
-            today_7am = now.replace(hour=7, minute=0, second=0, microsecond=0)
-            # 计算今天9:00的时间
-            today_9am = now.replace(hour=9, minute=0, second=0, microsecond=0)
+            # 每天检查是否需要重置计数器
+            self._check_reset_daily_counters()
             
-            # 如果现在时间已经过了7:00但还没到9:00，且今天还没有成功更新，则立即尝试更新
-            if now >= today_7am and now < today_9am and not self.last_update_success:
-                _LOGGER.info("Executing scheduled update (7:00 AM)")
+            # 如果现在是7-9点之间，且今天还没有成功更新
+            if 7 <= current_hour < 9 and not self.today_success:
+                # 检查是否已达到最大重试次数
+                if self.today_retry_count >= self.max_retries_per_day:
+                    _LOGGER.warning(f"今日已达到最大重试次数({self.max_retries_per_day})，停止更新直到明天")
+                    # 计算到明天7点的等待时间
+                    tomorrow_7am = now.replace(hour=7, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                    wait_seconds = (tomorrow_7am - now).total_seconds()
+                    _LOGGER.info(f"下一次更新将在明天7点，等待{wait_seconds:.0f}秒")
+                    await asyncio.sleep(wait_seconds)
+                    continue
+                
+                # 记录更新尝试
+                attempt_number = self.today_retry_count + 1
+                current_time = now.strftime("%H:%M:%S")
+                _LOGGER.info(f"尝试更新新闻 (第{attempt_number}次尝试) - 当前时间: {current_time}")
+                
                 try:
                     await self.async_refresh()
                 except Exception as err:
-                    _LOGGER.warning(f"Scheduled update failed: {err}")
-            
-            # 如果现在时间已经过了9:00，且上次更新失败，则进行重试
-            elif now >= today_9am and not self.last_update_success:
-                _LOGGER.info(f"Executing retry update (9:00 AM)")
-                try:
-                    await self.async_refresh()
-                except Exception as err:
-                    _LOGGER.warning(f"Retry update failed: {err}")
-            
-            # 计算下一次更新时间（明天7:00）
-            next_update = today_7am + timedelta(days=1)
-            
-            wait_seconds = (next_update - now).total_seconds()
-            _LOGGER.debug(f"Next update scheduled at {next_update} (in {wait_seconds:.0f} seconds)")
-            
-            await asyncio.sleep(wait_seconds)
+                    _LOGGER.warning(f"更新失败: {err}")
+                
+                # 计算下一次重试时间（15分钟后，但不能超过9点）
+                next_retry_time = now + timedelta(minutes=15)
+                nine_am_today = now.replace(hour=9, minute=0, second=0, microsecond=0)
+                
+                if next_retry_time < nine_am_today:
+                    # 等待15分钟
+                    wait_seconds = 15 * 60
+                    _LOGGER.info(f"下一次重试将在15分钟后 ({next_retry_time.strftime('%H:%M')})")
+                    await asyncio.sleep(wait_seconds)
+                else:
+                    # 已经接近9点，等到明天7点
+                    tomorrow_7am = now.replace(hour=7, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                    wait_seconds = (tomorrow_7am - now).total_seconds()
+                    _LOGGER.info(f"今日更新时间已过，下一次更新将在明天7点，等待{wait_seconds:.0f}秒")
+                    await asyncio.sleep(wait_seconds)
+                    
+            elif current_hour < 7:
+                # 还未到7点，等待到7点
+                today_7am = now.replace(hour=7, minute=0, second=0, microsecond=0)
+                wait_seconds = (today_7am - now).total_seconds()
+                _LOGGER.info(f"等待到7点开始更新，剩余{wait_seconds:.0f}秒")
+                await asyncio.sleep(wait_seconds)
+                
+            elif current_hour >= 9:
+                # 已经过了9点，等待到明天7点
+                # 如果今天已经成功更新，也等到明天7点
+                tomorrow_7am = now.replace(hour=7, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                wait_seconds = (tomorrow_7am - now).total_seconds()
+                
+                if self.today_success:
+                    _LOGGER.info(f"今日已成功更新，下一次更新将在明天7点，等待{wait_seconds:.0f}秒")
+                else:
+                    _LOGGER.warning(f"今日未成功更新，已停止重试，等待明天7点，剩余{wait_seconds:.0f}秒")
+                
+                await asyncio.sleep(wait_seconds)
+            else:
+                # 异常情况，等待1小时后重新检查
+                _LOGGER.debug(f"异常状态，当前时间: {current_hour}点，等待1小时后重新检查")
+                await asyncio.sleep(3600)
 
     def start_scrolling(self):
         """Start the news scrolling task."""
@@ -308,4 +373,4 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
             self.data["scroll_interval"] = new_interval
         self.stop_scrolling()
         self.start_scrolling()
-        _LOGGER.info(f"Scroll interval updated to {new_interval} seconds")
+        _LOGGER.info(f"滚动间隔更新为 {new_interval} 秒")

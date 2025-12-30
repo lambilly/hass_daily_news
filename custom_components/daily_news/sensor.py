@@ -57,7 +57,9 @@ class DailyNewsSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return {
                 "title": "每日新闻",
-                "last_update": "从未更新"
+                "last_update": "从未更新",
+                "retry_count": 0,
+                "update_schedule": "每日7-9点更新"
             }
             
         data = self.coordinator.data
@@ -71,7 +73,9 @@ class DailyNewsSensor(CoordinatorEntity, SensorEntity):
             ATTR_UPDATE_TIME: data.get("date", ""),
             ATTR_TOTAL_NEWS: data.get("total_news", 0),
             ATTR_SCROLL_INTERVAL: data.get("scroll_interval", 15),
-            "last_update": data.get("last_update", "从未更新")
+            "last_update": data.get("last_update", "从未更新"),
+            "retry_count": data.get("retry_count", 0),
+            "update_schedule": data.get("update_schedule", "每日7-9点更新")
         }
 
     @property
@@ -109,7 +113,9 @@ class ScrollingNewsSensor(CoordinatorEntity, SensorEntity):
         if not self.coordinator.data:
             return {
                 "title": "滚动新闻",
-                "last_update": "从未更新"
+                "last_update": "从未更新",
+                "retry_count": 0,
+                "update_schedule": "每日7-9点更新"
             }
             
         current_news, current_index, total_news = self.coordinator.get_current_news()
@@ -126,7 +132,9 @@ class ScrollingNewsSensor(CoordinatorEntity, SensorEntity):
             ATTR_WEIYU: data.get("weiyu", ""),
             ATTR_UPDATE_TIME: data.get("date", ""),
             ATTR_SCROLL_INTERVAL: data.get("scroll_interval", 15),
-            "last_update": data.get("last_update", "从未更新")
+            "last_update": data.get("last_update", "从未更新"),
+            "retry_count": data.get("retry_count", 0),
+            "update_schedule": data.get("update_schedule", "每日7-9点更新")
         }
         
         return attributes
