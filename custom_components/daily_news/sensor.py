@@ -1,20 +1,7 @@
 """Sensor platform for Daily News."""
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.core import callback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-
-from .const import (
-    DOMAIN,
-    ATTR_STATUS,
-    ATTR_HEAD_IMAGE,
-    ATTR_NEWS_IMAGE,
-    ATTR_WEIYU,
-    ATTR_NEWS,
-    ATTR_UPDATE_TIME,
-    ATTR_CURRENT_INDEX,
-    ATTR_TOTAL_NEWS,
-    ATTR_SCROLL_INTERVAL,
-)
+from .const import DOMAIN
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up Daily News sensor based on config entry."""
@@ -58,24 +45,25 @@ class DailyNewsSensor(CoordinatorEntity, SensorEntity):
             return {
                 "title": "每日新闻",
                 "last_update": "从未更新",
-                "retry_count": 0,
-                "update_schedule": "每日7-9点更新"
+                "update_schedule": "每日6点开始更新",
+                "api_key_status": "未配置"
             }
             
         data = self.coordinator.data
+        
         return {
             "title": "每日新闻",
-            ATTR_STATUS: data.get("status", ""),
-            ATTR_HEAD_IMAGE: data.get("head_image", ""),
-            ATTR_NEWS_IMAGE: data.get("news_image", ""),
-            ATTR_WEIYU: data.get("weiyu", ""),
-            ATTR_NEWS: data.get("news", {}),
-            ATTR_UPDATE_TIME: data.get("date", ""),
-            ATTR_TOTAL_NEWS: data.get("total_news", 0),
-            ATTR_SCROLL_INTERVAL: data.get("scroll_interval", 15),
+            "status": data.get("status", ""),
+            "head_image": data.get("head_image", "暂无图片"),
+            "news_image": data.get("news_image", "暂无图片"),
+            "weiyu": data.get("weiyu", "暂无微语"),
+            "news": data.get("news", {}),
+            "update_time": data.get("date", ""),
+            "total_news": data.get("total_news", 0),
+            "scroll_interval": data.get("scroll_interval", 15),
             "last_update": data.get("last_update", "从未更新"),
-            "retry_count": data.get("retry_count", 0),
-            "update_schedule": data.get("update_schedule", "每日7-9点更新")
+            "update_schedule": data.get("update_schedule", "每日6点开始更新"),
+            "api_key_status": data.get("api_key_status", "未知")
         }
 
     @property
@@ -114,8 +102,8 @@ class ScrollingNewsSensor(CoordinatorEntity, SensorEntity):
             return {
                 "title": "滚动新闻",
                 "last_update": "从未更新",
-                "retry_count": 0,
-                "update_schedule": "每日7-9点更新"
+                "update_schedule": "每日6点开始更新",
+                "api_key_status": "未配置"
             }
             
         current_news, current_index, total_news = self.coordinator.get_current_news()
@@ -124,17 +112,17 @@ class ScrollingNewsSensor(CoordinatorEntity, SensorEntity):
         attributes = {
             "title": "滚动新闻",
             "current_news": current_news,
-            ATTR_CURRENT_INDEX: current_index,
-            ATTR_TOTAL_NEWS: total_news,
-            ATTR_STATUS: data.get("status", ""),
-            ATTR_HEAD_IMAGE: data.get("head_image", ""),
-            ATTR_NEWS_IMAGE: data.get("news_image", ""),
-            ATTR_WEIYU: data.get("weiyu", ""),
-            ATTR_UPDATE_TIME: data.get("date", ""),
-            ATTR_SCROLL_INTERVAL: data.get("scroll_interval", 15),
+            "current_index": current_index,
+            "total_news": total_news,
+            "status": data.get("status", ""),
+            "head_image": data.get("head_image", "暂无图片"),
+            "news_image": data.get("news_image", "暂无图片"),
+            "weiyu": data.get("weiyu", "暂无微语"),
+            "update_time": data.get("date", ""),
+            "scroll_interval": data.get("scroll_interval", 15),
             "last_update": data.get("last_update", "从未更新"),
-            "retry_count": data.get("retry_count", 0),
-            "update_schedule": data.get("update_schedule", "每日7-9点更新")
+            "update_schedule": data.get("update_schedule", "每日6点开始更新"),
+            "api_key_status": data.get("api_key_status", "未知")
         }
         
         return attributes

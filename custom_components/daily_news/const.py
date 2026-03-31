@@ -6,8 +6,10 @@ DEFAULT_SCAN_INTERVAL = 86400  # 24 hours
 DEFAULT_SCROLL_INTERVAL = 15  # 15 seconds
 
 CONF_SCROLL_INTERVAL = "scroll_interval"
+CONF_API_KEY = "api_key"  # 新增API Key配置
 
-API_URL = "http://api.suxun.site/api/sixs?type=json"
+# API地址模板
+API_URL_TEMPLATE = "https://qqlykm.cn/api/60s/index?key={}"
 
 ATTR_STATUS = "status"
 ATTR_HEAD_IMAGE = "head_image"
@@ -18,4 +20,6 @@ ATTR_UPDATE_TIME = "update_time"
 ATTR_CURRENT_INDEX = "current_index"
 ATTR_TOTAL_NEWS = "total_news"
 ATTR_TITLE = "title"
-ATTR_SCROLL_INTERVAL = "scroll_interval"  # 新增滚动间隔属性
+ATTR_SCROLL_INTERVAL = "scroll_interval"
+
+PLATFORMS = ["sensor"]
