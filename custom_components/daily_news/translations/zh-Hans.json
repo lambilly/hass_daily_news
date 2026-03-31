@@ -4,6 +4,7 @@
             "user": {
                 "description": "设置每日新闻集成",
                 "data": {
+                    "api_key": "API密钥",
                     "scroll_interval": "滚动间隔（秒）"
                 }
             }
@@ -12,18 +13,30 @@
             "single_instance_allowed": "仅允许一个每日新闻实例"
         },
         "error": {
-            "scroll_interval_range": "滚动间隔必须在5-300秒之间"
+            "api_key_required": "API密钥不能为空",
+            "scroll_interval_range": "滚动间隔必须在5-300秒之间",
+            "invalid_scroll_interval": "滚动间隔必须是数字",
+            "required": "此字段是必填的",
+            "unknown": "未知错误"
         }
     },
     "options": {
         "step": {
             "init": {
                 "data": {
+                    "api_key": "API密钥",
                     "scroll_interval": "滚动间隔（秒）"
                 },
-                "description": "配置滚动新闻的切换间隔时间（5-300秒）",
-                "title": "配置滚动新闻"
+                "description": "配置API密钥和滚动新闻切换间隔时间（5-300秒）",
+                "title": "配置每日新闻"
             }
+        },
+        "error": {
+            "api_key_required": "API密钥不能为空",
+            "scroll_interval_range": "滚动间隔必须在5-300秒之间",
+            "invalid_scroll_interval": "滚动间隔必须是数字",
+            "required": "此字段是必填的",
+            "unknown": "未知错误"
         }
     },
     "title": "每日新闻"
