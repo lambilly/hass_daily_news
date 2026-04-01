@@ -142,7 +142,7 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
             "total_news": 0,
             "scroll_interval": self.scroll_interval,
             "last_update": "从未更新",
-            "update_schedule": "每日6点开始更新",
+            "update_schedule": "每日7点开始更新",
             "api_key_status": "未配置" if not self.api_key else "已配置"
         }
 
@@ -288,7 +288,7 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
             self.update_task = None
 
     async def _scheduled_updates(self):
-        """处理定时更新 - 简化版本：每天6点开始，失败则15分钟重试."""
+        """处理定时更新 - 每天7点开始，失败则15分钟重试."""
         _LOGGER.info("开始定时更新任务")
         
         while True:
@@ -298,8 +298,8 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
             # 重置每日计数器
             self._check_reset_daily_counters()
             
-            # 如果现在是6点或之后，且今天还没有成功更新
-            if current_hour >= 6 and not self.today_success:
+            # 如果现在是7点或之后，且今天还没有成功更新
+            if current_hour >= 7 and not self.today_success:
                 # 尝试更新
                 _LOGGER.info("尝试更新新闻数据")
                 
@@ -311,25 +311,25 @@ class DailyNewsDataCoordinator(DataUpdateCoordinator):
                 # 等待15分钟后重试
                 await asyncio.sleep(15 * 60)
                 
-            elif current_hour < 6:
-                # 还未到6点，计算到6点的等待时间
-                today_6am = now.replace(hour=6, minute=0, second=0, microsecond=0)
-                wait_seconds = (today_6am - now).total_seconds()
+            elif current_hour < 7:
+                # 还未到7点，计算到7点的等待时间
+                today_7am = now.replace(hour=7, minute=0, second=0, microsecond=0)
+                wait_seconds = (today_7am - now).total_seconds()
                 
                 if wait_seconds > 0:
-                    _LOGGER.info("等待到6点开始更新，剩余%.0f秒", wait_seconds)
+                    _LOGGER.info("等待到7点开始更新，剩余%.0f秒", wait_seconds)
                     await asyncio.sleep(wait_seconds)
                 else:
-                    # 已经过了6点，立即尝试
+                    # 已经过了7点，立即尝试
                     continue
             else:
-                # 今天已经成功更新，等待到明天6点
-                tomorrow_6am = now.replace(hour=6, minute=0, second=0, microsecond=0) + timedelta(days=1)
-                wait_seconds = (tomorrow_6am - now).total_seconds()
+                # 今天已经成功更新，等待到明天7点
+                tomorrow_7am = now.replace(hour=7, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                wait_seconds = (tomorrow_7am - now).total_seconds()
                 
-                _LOGGER.info("今日已成功更新，下一次更新将在明天6点，等待%.0f秒", wait_seconds)
+                _LOGGER.info("今日已成功更新，下一次更新将在明天7点，等待%.0f秒", wait_seconds)
                 await asyncio.sleep(wait_seconds)
-
+            
     def start_scrolling(self):
         """启动新闻滚动任务."""
         self.stop_scrolling()
